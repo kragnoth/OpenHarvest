@@ -1,8 +1,5 @@
 package sblectric.openharvest.events;
 
-import java.util.LinkedList;
-import java.util.List;
-
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockCrops;
 import net.minecraft.block.properties.IProperty;
@@ -27,6 +24,9 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.oredict.OreDictionary;
 import sblectric.openharvest.config.HarvestConfig;
 import sblectric.openharvest.util.HarvestUtils;
+
+import java.util.LinkedList;
+import java.util.List;
 
 /** All harvest-related events for the mod */
 public class HarvestEvents {
@@ -57,7 +57,7 @@ public class HarvestEvents {
 				// get the age type
 				PropertyInteger age = null;
 				int maxAge = -1;
-				for(IProperty prop : state.getPropertyNames()) {
+				for(IProperty prop : state.getPropertyKeys()) {
 					if(prop instanceof PropertyInteger && prop.getName().equals("age")) {
 						age = (PropertyInteger)prop;
 						maxAge = HarvestUtils.max(age.getAllowedValues());
@@ -97,12 +97,12 @@ public class HarvestEvents {
 		
 		// make sure the tool is a valid axe and such
 		ItemStack heldStack = player.getHeldItemMainhand();
-		if(heldStack != null && heldStack.getItem() instanceof ItemTool && playerSneakModeValid(player)) {
+		if(heldStack.getCount() > 0  && heldStack.getItem() instanceof ItemTool && playerSneakModeValid(player)) {
 			ItemTool tool = (ItemTool)heldStack.getItem();
 			for(String tc : tool.getToolClasses(heldStack)) {
 				if(tc.equals("axe")) {
 					// now iterate through the drops to make sure the block is an oredict log
-					for(ItemStack s : blockState.getBlock().getDrops(player.worldObj, pos, blockState, 0)) {
+					for(ItemStack s : blockState.getBlock().getDrops(player.getEntityWorld(), pos, blockState, 0)) {
 						for(int id : OreDictionary.getOreIDs(s)) {
 							if(OreDictionary.getOreName(id).equals("logWood")) {
 								return true;
@@ -118,7 +118,7 @@ public class HarvestEvents {
 	/** Try to harvest a log, and give the player Mining Fatigue in treecapitate mode */
 	@SubscribeEvent
 	public void onStartHarvestLog(PlayerEvent.BreakSpeed event) {
-		World world = event.getEntity().worldObj;
+		World world = event.getEntity().getEntityWorld();
 		if(world.isRemote || !HarvestConfig.doTreeChop) return; // nothing clientside
 		
 		EntityPlayerMP player = (EntityPlayerMP)event.getEntityPlayer();
@@ -158,7 +158,7 @@ public class HarvestEvents {
 	private void treecapitate(World world, BlockPos pos, IBlockState stateFirstBlock, EntityPlayerMP player, ItemStack tool) {
 
 		// don't execute anything more with a broken tool
-		if(tool == null || tool.stackSize <= 0) return;
+		if(tool.getCount() <= 0) return;
 
 		// don't exceed the max logs set in the config
 		if(blocks > HarvestConfig.maxLogsAtOnce) return;
@@ -170,7 +170,7 @@ public class HarvestEvents {
 		for(EnumFacing f : EnumFacing.values()) {
 			for(EnumFacing f2 : EnumFacing.values()) { // works on diagonals and 1-block spaces
 				for(int i = 0; i <= 1; i++) {
-					if(tool == null || tool.stackSize <= 0) return; // check again here
+					if(tool.getCount() <= 0) return; // check again here
 					BlockPos newPos = pos.offset(f).offset(f2, i);
 					if(isBlockSearchable(world, newPos, stateFirstBlock)) treecapitate(world, newPos, stateFirstBlock, player, tool);
 				}
@@ -181,7 +181,7 @@ public class HarvestEvents {
 		if(isBlockHarvestable(world, pos, stateFirstBlock)) {
 			world.destroyBlock(pos, true);
 			tool.damageItem(1, player);
-			if(tool.stackSize <= 0) player.setHeldItem(EnumHand.MAIN_HAND, null);
+			if(tool.getCount() <= 0) player.setHeldItem(EnumHand.MAIN_HAND, ItemStack.EMPTY);
 			blocks++; // increase the broken count
 		} else if(world.getBlockState(pos).getBlock().isLeaves(world.getBlockState(pos), world, pos)) {
 			leaves++; // increase the leaf counter if the block is leaves
